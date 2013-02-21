@@ -1,3 +1,11 @@
+;;; unittest.el --- Minor mode for running Python unit tests
+
+;; Copyright 2013 Simon Jagoe
+
+;; Author: Simon Jagoe <simon@simonjagoe.com>
+;; URL: http://github.com/sjagoe/unittest-mode
+;; Version: 0.1.0
+
 (require 'compile)
 (require 'cl)
 
@@ -259,3 +267,5 @@ some-package (as determined by a setup.py file)"
 
 
 (provide 'unittest)
+
+;;; unittest.el ends here
