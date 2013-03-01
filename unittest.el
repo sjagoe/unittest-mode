@@ -197,7 +197,7 @@ all tests for the module are run."
 (defun unittest-execute-current-file ()
   "Executes the current buffer"
   (interactive)
-  (run-in-shell (concat "python " (buffer-file-name)) 'python-exec-mode))
+  (run-in-shell (concat unittest-python-command " " (buffer-file-name)) 'python-exec-mode))
 
 
 (defun unittest-execute-module-file (module-file)
