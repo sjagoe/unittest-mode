@@ -127,12 +127,22 @@
     (concat cmd verbose-flag)))
 
 
+(defun unittest-shell-exec-quote-filename (filename)
+  (if (string= unittest-shell-exec "cmd /S /C")
+      (concat "\"" filename "\"")
+    filename))
+
+
+(defun unittest-shell-exec-command (command)
+  (if unittest-shell-exec
+      (concat unittest-shell-exec " \"" command "\"")
+    command))
+
+
 (defun run-in-compile (command &optional mode)
   (let ((mode (if mode mode 'unittest-output-mode)))
     (compilation-start
-     (if unittest-shell-exec
-         (concat unittest-shell-exec " \"" command "\"")
-       command)
+     (unittest-shell-exec-command command)
      mode)))
 
 
@@ -154,7 +164,7 @@
 (defun unittest-run-test-case (verbose)
   "Executes a test case file"
   (interactive "P")
-  (let ((python-arg (unittest-get-test-file-name)))
+  (let ((python-arg (unittest-shell-exec-quote-filename (unittest-get-test-file-name))))
     (run-in-compile
      (verbose-cmd (concat unittest-python-command " " python-arg ) verbose))))
 
@@ -164,7 +174,7 @@
 test, the test case will be executed. If point is not in a test,
 all tests for the module are run."
   (interactive "P")
-  (let ((python-arg (unittest-get-test-file-name)))
+  (let ((python-arg (unittest-shell-exec-quote-filename (unittest-get-test-file-name))))
     (let ((test-cmd (verbose-cmd (concat unittest-python-command " " python-arg) verbose)))
     (run-in-compile
      (concat test-cmd " " (unittest-get-class-function-name))))))
@@ -203,7 +213,8 @@ all tests for the module are run."
 (defun unittest-execute-current-file ()
   "Executes the current buffer"
   (interactive)
-  (run-in-shell (concat unittest-python-command " " (buffer-file-name))))
+  (let ((file-to-run (unittest-shell-exec-quote-filename (buffer-file-name))))
+    (run-in-shell (concat unittest-python-command " " file-to-run))))
 
 
 (defun unittest-execute-module-file (module-file)
