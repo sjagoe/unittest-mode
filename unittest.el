@@ -114,6 +114,10 @@
   "A compilation buffer for Python unittest")
 
 
+(define-compilation-mode python-exec-mode "python-exec"
+  "A compilation buffer for Python scripts")
+
+
 (defun verbose-cmd (cmd verbose)
   "Returns the command used to execute unit tests"
   (let ((verbose-flag
@@ -133,11 +137,7 @@
 
 
 (defun run-in-shell (command)
-  (python-shell-make-comint
-   (if unittest-shell-exec
-       (concat unittest-shell-exec " \"" command "\"")
-     command)
-   "python-exec"))
+  (run-in-compile command 'python-exec-mode))
 
 
 (defun unittest-get-test-file-name ()
