@@ -4,7 +4,7 @@
 
 ;; Author: Simon Jagoe <simon@simonjagoe.com>
 ;; URL: http://github.com/sjagoe/unittest-mode
-;; Version: 0.1.1
+;; Version: 0.2.0
 
 (require 'cl)
 (require 'compile)
@@ -38,6 +38,44 @@
   "Dotted module name of the last executed module"
   :group 'unittest
   :type 'string)
+
+
+(defcustom unittest-run-tests-command
+  "python -u -m unittest"
+  "Command used to run tests"
+  :group 'unittest
+  :type 'string)
+
+
+(defcustom unittest-discover-tests-command
+  "python -u -m unittest discover"
+  "Command used to discover run tests"
+  :group 'unittest
+  :type 'string)
+
+
+(defcustom unittest-discover-module
+  nil
+  "Dotted module name of where to look for tests"
+  :group 'unittest
+  :type 'string)
+
+
+(defcustom unittest-run-tests-directory
+  nil
+  "Default working directory in which to run
+`unittest-run-tests-command' and
+`unittest-discover-tests-command'."
+  :group 'unittest
+  :type 'string)
+
+
+(defcustom unittest-remember-tests-directory
+  t
+  "Remember the directory from which to run tests, or prompt
+every time?"
+  :group 'unittest
+  :type 'boolean)
 
 
 (defvar unittest-indent-str "    ")
@@ -115,7 +153,9 @@
 
 
 (define-compilation-mode python-exec-mode "python-exec"
-  "A compilation buffer for Python scripts")
+  "A compilation buffer for Python scripts"
+  (setq buffer-read-only nil)
+  (with-no-warnings (inferior-python-mode)))
 
 
 (defun verbose-cmd (cmd verbose)
@@ -161,12 +201,24 @@
         python-arg))))
 
 
-(defun unittest-run-test-case (verbose)
+(defun unittest-run-test-case (tests-dir)
   "Executes a test case file"
-  (interactive "P")
-  (let ((python-arg (unittest-shell-exec-quote-filename (unittest-get-test-file-name))))
+  (interactive (list (read-directory-name "Run tests in: " (if (string= unittest-run-tests-directory nil)
+                                                               (unittest-setup-py-directory)
+                                                             unittest-run-tests-directory))))
+  (let ((verbose current-prefix-arg)
+        (default-directory tests-dir)
+        (python-arg (unittest-current-module t (unittest-get-test-file-name))))
     (run-in-compile
-     (verbose-cmd (concat unittest-python-command " " python-arg ) verbose))))
+     (concat (unittest-unittest-run-cmd verbose) " " python-arg ))))
+
+
+;; (defun unittest-run-test-case (verbose)
+;;   "Executes a test case file"
+;;   (interactive "P")
+;;   (let ((python-arg (unittest-shell-exec-quote-filename (unittest-get-test-file-name))))
+;;     (run-in-compile
+;;      (verbose-cmd (concat unittest-python-command " " python-arg ) verbose))))
 
 
 (defun unittest-run-single-test (verbose)
@@ -176,8 +228,8 @@ all tests for the module are run."
   (interactive "P")
   (let ((python-arg (unittest-shell-exec-quote-filename (unittest-get-test-file-name))))
     (let ((test-cmd (verbose-cmd (concat unittest-python-command " " python-arg) verbose)))
-    (run-in-compile
-     (concat test-cmd " " (unittest-get-class-function-name))))))
+      (run-in-compile
+       (concat test-cmd " " (unittest-get-class-function-name))))))
 
 
 (defun unittest-setup-py-directory ()
@@ -190,24 +242,77 @@ all tests for the module are run."
           finally return directory)))
 
 
+(defun unittest-current-module (include-module &optional start)
+  "Returns the dotted module name of the current package"
+  (interactive "P")
+  (let ((start (if (string= start nil)
+                   (buffer-file-name)
+                 start)))
+    (let ((directory (file-name-directory start))
+          (module-name (if include-module
+                           (file-name-base start)
+                         nil)))
+      (let ((return-value (loop while (file-exists-p (concat directory "__init__.py"))
+                                do (let ((directory-name (directory-file-name (file-name-directory directory))))
+                                     (let ((module-part (file-name-nondirectory directory-name)))
+                                       (setq module-name (if (string= module-name nil)
+                                                             module-part
+                                                           (concat module-part "." module-name))))
+                                     (setq directory (file-name-directory directory-name)))
+                                finally return module-name)))
+        (if (string= nil module-name)
+            (error (concat start " is not in a package!"))
+          module-name)))))
+
+
 (defun unittest-unittest-discover-cmd (verbose)
   "Returns the command used to execute unit tests"
-  (verbose-cmd (concat unittest-python-command " -m unittest discover") verbose))
+  (verbose-cmd unittest-discover-tests-command verbose))
 
 
-(defun unittest-run-tests-in-directory (tests-dir)
+(defun unittest-unittest-run-cmd (verbose)
+  "Returns the command used to execute unit tests"
+  (verbose-cmd unittest-run-tests-command verbose))
+
+
+(defun unittest-run-tests-top-level (tests-dir)
   "Executes \"python -m unittest discover\" in the selected directory"
-  (interactive (list (read-directory-name "Run tests in: " (unittest-setup-py-directory))))
+  (interactive (list (read-directory-name "Run tests in: " (if (string= unittest-run-tests-directory nil)
+                                                               (unittest-setup-py-directory)
+                                                             unittest-run-tests-directory))))
+  (progn
+    (if unittest-remember-tests-directory
+        (customize-save-variable 'unittest-run-tests-directory tests-dir))
+    (let ((verbose current-prefix-arg)
+          (default-directory tests-dir)
+          (package (car (split-string (unittest-current-module nil) "\\."))))
+      (run-in-compile (concat (unittest-unittest-discover-cmd verbose) " " package)))))
+
+
+;; (defun unittest-run-tests-in-directory (tests-dir)
+;;   "Executes \"python -m unittest discover\" in the selected directory"
+;;   (interactive (list (read-directory-name "Run tests in: " (unittest-setup-py-directory))))
+;;   (let ((verbose current-prefix-arg)
+;;         (default-directory tests-dir))
+;;     (run-in-compile (unittest-unittest-discover-cmd verbose))))
+
+
+(defun unittest-run-tests-in-current-package (tests-dir)
+  "Executes \"python -m unittest discover\" for the current buffer's package"
+  (interactive (list (read-directory-name "Run tests in: " (if (string= unittest-run-tests-directory nil)
+                                                               (unittest-setup-py-directory)
+                                                             unittest-run-tests-directory))))
   (let ((verbose current-prefix-arg)
-        (default-directory tests-dir))
-    (run-in-compile (unittest-unittest-discover-cmd verbose))))
+        (default-directory tests-dir)
+        (package (unittest-current-module nil)))
+    (run-in-compile (concat (unittest-unittest-discover-cmd verbose) " " package))))
 
 
-(defun unittest-run-tests-in-current-directory (verbose)
-  "Executes \"python -m unittest discover\" in the current buffer's directory"
-  (interactive "P")
-  (let ((default-directory (file-name-directory (directory-file-name (buffer-file-name)))))
-    (run-in-compile (unittest-unittest-discover-cmd verbose))))
+;; (defun unittest-run-tests-in-current-directory (verbose)
+;;   "Executes \"python -m unittest discover\" in the current buffer's directory"
+;;   (interactive "P")
+;;   (let ((default-directory (file-name-directory (directory-file-name (buffer-file-name)))))
+;;     (run-in-compile (unittest-unittest-discover-cmd verbose))))
 
 
 (defun unittest-execute-current-file ()
@@ -226,14 +331,16 @@ e.g. foo/bar will be executed as 'python -m foo.bar'"
   (let ((package-module (replace-regexp-in-string "/" "." module-file)))
     (progn
       (customize-save-variable 'unittest-last-executed-module package-module)
-      (run-in-shell (concat unittest-python-command " -m " package-module)))))
+      (let ((default-directory "/"))
+        (run-in-shell (concat unittest-python-command " -m " package-module))))))
 
 
 (defun unittest-execute-last-module ()
   (interactive)
-  (if (not (string= unittest-last-executed-module nil))
-      (run-in-shell (concat unittest-python-command " -m " unittest-last-executed-module))
-    (error "No last module set")))
+  (let ((default-directory "/"))
+    (if (not (string= unittest-last-executed-module nil))
+        (run-in-shell (concat unittest-python-command " -m " unittest-last-executed-module))
+      (error "No last module set"))))
 
 
 (defun unittest-execute-current-module ()
@@ -264,8 +371,8 @@ some-package (as determined by a setup.py file)"
     (define-key pmap "l" 'unittest-execute-last-module)
     (define-key pmap "f" 'unittest-run-test-case)
     (define-key pmap "s" 'unittest-run-single-test)
-    (define-key pmap "t" 'unittest-run-tests-in-directory)
-    (define-key pmap "d" 'unittest-run-tests-in-current-directory)
+    (define-key pmap "t" 'unittest-run-tests-top-level)
+    (define-key pmap "d" 'unittest-run-tests-in-current-package)
     (define-key map (kbd "C-x t") pmap)
     map)
   "Keymap of `unittest-mode'.")
