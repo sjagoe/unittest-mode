@@ -4,7 +4,7 @@
 
 ;; Author: Simon Jagoe <simon@simonjagoe.com>
 ;; URL: http://github.com/sjagoe/unittest-mode
-;; Version: 0.2.0
+;; Version: 0.3.0
 
 (require 'cl)
 (require 'compile)

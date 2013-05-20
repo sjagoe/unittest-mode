@@ -2,14 +2,21 @@
 UnitTest mode
 =============
 
-This is a minor mode enabling running python unit tests within
+Unittest mode is a minor mode enabling running python unit tests within
 emacs. It is intended to be used alongside python-mode in emacs.
 
 
 Installing
 ==========
 
-To install, put ``unittest.el`` on you emacs load path and add the following to the init file::
+The mode is distributed as a pack for emacs-live. To install it as an
+emacs-live pack, add this to your ``.emacs-live.el`` file::
+
+    (live-add-packs '("/path/to/unittest-pack"))
+
+
+Alternatively, to install without emacs-live, put ``unittest.el`` on you
+emacs load path and add the following to the init file::
 
     (require 'unittest)
     (add-hook 'python-mode-hook 'unittest-mode)
@@ -68,3 +75,35 @@ To use this in Windows, you need to ``customize`` the the
 /C``.  This will make scripts and tests execute under a cmd.exe
 subshell, and set up ``unittest.el`` to correctly quote paths with
 space, and cmd.exe to correctly parse the quoting.
+
+
+Changelog
+=========
+
+Version 0.3.0
+-------------
+
+ * Changed repository structure to that of an emacs-live pack
+
+
+Version 0.2.0
+-------------
+
+ * Added ``customize`` options
+   * unittest-run-tests-command
+   * unittest-discover-tests-command
+   * unittest-discover-module
+   * unittest-run-tests-directory
+ * Added inferior-python-mode to python-exec-mode
+
+
+Version 0.1.2
+-------------
+
+ * Reverted to compilation-mode derived mode for executing modules
+
+
+Version 0.1.1
+-------------
+
+ * Use comint-mode for python-exec
